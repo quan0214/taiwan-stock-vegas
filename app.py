@@ -5,8 +5,8 @@ import yfinance as yf
 import discord
 from discord.ext import commands
 
-# 💡 從雲端環境變數讀取 Token，避免代碼洩漏密鑰
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+# 🔒 您的專屬 Discord 機器人 Token (已直接寫入)
+TOKEN = "MTQxMzM2ODE0MTI5MTA2MTI3OA.Gmo2gs.sw7jKw_hUYO3Rc0ZG-yQh-z7bsxR8rThX6AGRE"
 CACHE_FILE = "vegas_base_cache.csv"
 
 # 初始化 Discord Bot
@@ -17,7 +17,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 def get_complete_taiwan_stock_list():
     """內建全台股清單 (上市+上櫃共 1800+ 檔)"""
     # 這裡放你原本完整的 tse_ids 與 tpex_ids 清單
-    tse_ids = ["1101", "1102", "2330", "2317", "2454"] # 範例，請自行補齊原本長清單
+    tse_ids = ["1101", "1102", "2330", "2317", "2454"] # 範例，請自行補齊原本的長清單
     tpex_ids = ["5483", "6488", "8069"]
     return [f"{sid}.TW" for sid in tse_ids] + [f"{sid}.TWO" for sid in tpex_ids]
 
@@ -39,7 +39,7 @@ def build_vegas_cache(all_stocks):
                     df = df.dropna(subset=['Close'])
                     if len(df) < 676: continue
                     
-                    # 確保取到正確的 Series
+                    # 確保取到單一維度的 Series (相容 yfinance 新舊版本)
                     close_series = df['Close'].iloc[:, 0] if isinstance(df['Close'], pd.DataFrame) else df['Close']
                     
                     df['EMA144'] = calculate_ema(close_series, 144)
@@ -83,6 +83,7 @@ async def scan_market(ctx_or_channel, scan_mode):
             today_df = realtime_data[stock_id]
             if today_df.empty: continue
             
+            # 安全取出今日股價數據
             c_price = float(today_df['Close'].iloc[-1])
             h_price = float(today_df['High'].iloc[-1])
             l_price = float(today_df['Low'].iloc[-1])
@@ -91,6 +92,7 @@ async def scan_market(ctx_or_channel, scan_mode):
             big_max, big_min = max(row['EMA576'], row['EMA676']), min(row['EMA576'], row['EMA676'])
             stock_name = stock_id.split('.')[0]
             
+            # 篩選邏輯
             if scan_mode == "long" and (small_min > big_max) and (l_price <= (small_max * 1.002) and c_price >= small_min):
                 triggered_targets.append(f"**{stock_name}** | 現價: `{c_price:.1f}` | 支撐區: `{small_min:.1f} ~ {small_max:.1f}`")
             elif scan_mode == "short" and (small_max < big_min) and (h_price >= (big_min * 0.998) and c_price <= big_max):
@@ -123,7 +125,4 @@ async def on_message(message):
     await bot.process_commands(message)
 
 if __name__ == "__main__":
-    if not TOKEN:
-        print("❌ 錯誤：找不到環境變數 DISCORD_BOT_TOKEN，請先設定它！")
-    else:
-        bot.run(TOKEN)
+    bot.run(TOKEN)
